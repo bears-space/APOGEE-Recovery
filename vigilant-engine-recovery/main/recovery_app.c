@@ -58,7 +58,7 @@ typedef enum {
 // ---- WiFi Config ----
 #define RECOVERY_AP_CHANNEL 6
 #define RECOVERY_MAX_CONN 2
-#define RECOVERY_CONNECTION_TIMEOUT_SECONDS 30
+#define RECOVERY_CONNECTION_TIMEOUT_SECONDS 10
 
 // ---- OTA ----
 #define OTA_BUF_SIZE 2048
