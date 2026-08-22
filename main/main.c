@@ -10,15 +10,29 @@
 #include "vigilant.h"
 
 #define BUZZER_GPIO 38
+#define BUZZER_VOLUME_PERCENT 0
+#define BUZZER_MAX_DUTY 512
 #define BPM 90
 #define NOTE_GATE_PERCENT 90
+
+#if BUZZER_VOLUME_PERCENT < 0 || BUZZER_VOLUME_PERCENT > 100
+#error "BUZZER_VOLUME_PERCENT must be between 0 and 100"
+#endif
 
 #define SERVO_GPIO 21
 #define SERVO_FREQUENCY_HZ 50
 #define SERVO_PERIOD_US (1000000 / SERVO_FREQUENCY_HZ)
 #define SERVO_MIN_PULSE_US 1000
 #define SERVO_MAX_PULSE_US 2000
-#define SERVO_INVERTED 1
+#define SERVO_SIGNAL_INVERTED 1
+
+#if SERVO_SIGNAL_INVERTED
+#define SERVO_PERIOD_START_ACTION MCPWM_GEN_ACTION_LOW
+#define SERVO_PULSE_END_ACTION MCPWM_GEN_ACTION_HIGH
+#else
+#define SERVO_PERIOD_START_ACTION MCPWM_GEN_ACTION_HIGH
+#define SERVO_PULSE_END_ACTION MCPWM_GEN_ACTION_LOW
+#endif
 
 #define NOTE_C4 262
 #define NOTE_D4 294
@@ -90,10 +104,6 @@ static uint32_t servo_angle_to_pulse(float angle) {
         angle = 180.0f;
     }
 
-#if SERVO_INVERTED
-    angle = 180.0f - angle;
-#endif
-
     return SERVO_MIN_PULSE_US +
            (uint32_t)((angle / 180.0f) *
                       (SERVO_MAX_PULSE_US - SERVO_MIN_PULSE_US));
@@ -145,14 +155,14 @@ static esp_err_t servo_init(void) {
         mcpwm_generator_set_action_on_timer_event(
             generator, MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP,
                                                     MCPWM_TIMER_EVENT_EMPTY,
-                                                    MCPWM_GEN_ACTION_HIGH)),
+                                                    SERVO_PERIOD_START_ACTION)),
         "servo", "Could not configure timer action");
 
     ESP_RETURN_ON_ERROR(
         mcpwm_generator_set_action_on_compare_event(
             generator, MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP,
                                                       servo_comparator,
-                                                      MCPWM_GEN_ACTION_LOW)),
+                                                      SERVO_PULSE_END_ACTION)),
         "servo", "Could not configure comparator action");
 
     ESP_RETURN_ON_ERROR(servo_set_angle(90.0f), "servo",
@@ -186,9 +196,12 @@ static uint32_t note_duration_ms(note_length_t length) {
 }
 
 static void buzzer_set_frequency(uint32_t frequency_hz) {
+    const uint32_t duty =
+        BUZZER_MAX_DUTY * (uint32_t)BUZZER_VOLUME_PERCENT / 100;
+
     ESP_ERROR_CHECK(
         ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0, frequency_hz));
-    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 512));
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty));
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
 }
 
