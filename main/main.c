@@ -10,7 +10,7 @@
 #include "vigilant.h"
 
 #define BUZZER_GPIO 38
-#define BUZZER_VOLUME_PERCENT 0
+#define BUZZER_VOLUME_PERCENT 100
 #define BUZZER_MAX_DUTY 512
 #define BPM 90
 #define NOTE_GATE_PERCENT 90
@@ -34,12 +34,13 @@
 #define SERVO_PULSE_END_ACTION MCPWM_GEN_ACTION_LOW
 #endif
 
-#define NOTE_C4 262
-#define NOTE_D4 294
-#define NOTE_E4 330
-#define NOTE_F4 349
-#define NOTE_G4 392
-#define NOTE_A4 440
+#define NOTE_D6 1175
+#define NOTE_E6 1319
+#define NOTE_G6 1568
+#define NOTE_A6 1760
+#define NOTE_B6 1976
+#define NOTE_C7 2093
+#define NOTE_D7 2349
 
 #define REST 0
 
@@ -59,42 +60,52 @@ typedef struct {
 static mcpwm_cmpr_handle_t servo_comparator;
 
 static const melody_note_t melody[] = {
-    // "Alle meine Entchen"
-    {NOTE_C4, EIGHTH},
-    {NOTE_D4, EIGHTH},
-    {NOTE_E4, EIGHTH},
-    {NOTE_F4, EIGHTH},
-    {NOTE_G4, QUARTER},
-    {NOTE_G4, QUARTER},
+    // Takt 8: "Du bist gut ge-nug"
+    {REST, HALF},
+    {NOTE_C7, EIGHTH},
+    {NOTE_B6, EIGHTH},
+    {NOTE_C7, EIGHTH},
+    {NOTE_B6, SIXTEENTH},
+    {NOTE_C7, SIXTEENTH},
 
-    // "schwimmen auf dem See"
-    {NOTE_A4, EIGHTH},
-    {NOTE_A4, EIGHTH},
-    {NOTE_A4, EIGHTH},
-    {NOTE_A4, EIGHTH},
-    {NOTE_G4, HALF},
+    // Takt 9
+    {NOTE_C7, EIGHTH},
+    {NOTE_B6, QUARTER},
+    {NOTE_A6, QUARTER},
+    {NOTE_G6, QUARTER},
+    {NOTE_D6, QUARTER},
 
-    // "schwimmen auf dem See"
-    {NOTE_A4, EIGHTH},
-    {NOTE_A4, EIGHTH},
-    {NOTE_A4, EIGHTH},
-    {NOTE_A4, EIGHTH},
-    {NOTE_G4, HALF},
+    // Takt 10
+    {NOTE_D6, EIGHTH},
+    {REST, QUARTER},
+    {NOTE_C7, EIGHTH},
+    {NOTE_B6, EIGHTH},
+    {NOTE_C7, EIGHTH},
+    {NOTE_B6, SIXTEENTH},
+    {NOTE_C7, SIXTEENTH},
 
-    // "Köpfchen in das Wasser"
-    {NOTE_F4, EIGHTH},
-    {NOTE_F4, EIGHTH},
-    {NOTE_F4, EIGHTH},
-    {NOTE_F4, EIGHTH},
-    {NOTE_E4, QUARTER},
-    {NOTE_E4, QUARTER},
+    // Takt 11
+    {NOTE_C7, EIGHTH},
+    {NOTE_B6, QUARTER},
+    {NOTE_A6, QUARTER},
+    {NOTE_D7, QUARTER},
+    {NOTE_A6, QUARTER},
 
-    // "Schwänzchen in die Höh'"
-    {NOTE_D4, EIGHTH},
-    {NOTE_D4, EIGHTH},
-    {NOTE_D4, EIGHTH},
-    {NOTE_D4, EIGHTH},
-    {NOTE_C4, HALF},
+    // Takt 12
+    {NOTE_A6, EIGHTH},
+    {REST, QUARTER},
+    {NOTE_C7, EIGHTH},
+    {NOTE_B6, EIGHTH},
+    {NOTE_C7, EIGHTH},
+    {NOTE_B6, SIXTEENTH},
+    {NOTE_C7, SIXTEENTH},
+
+    // Takt 13
+    {NOTE_C7, EIGHTH},
+    {NOTE_B6, QUARTER},
+    {NOTE_A6, QUARTER},
+    {NOTE_G6, QUARTER},
+    {NOTE_E6, EIGHTH},
 };
 
 static uint32_t servo_angle_to_pulse(float angle) {
@@ -176,18 +187,25 @@ static esp_err_t servo_init(void) {
     return ESP_OK;
 }
 
-static void servo_sweep_task(void* argument) {
-    (void)argument;
-
-    while (true) {
-        ESP_ERROR_CHECK(servo_set_angle(0.0f));
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_ERROR_CHECK(servo_set_angle(90.0f));
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_ERROR_CHECK(servo_set_angle(180.0f));
-        vTaskDelay(pdMS_TO_TICKS(1000));
+static float servo_angle_for_note(uint16_t frequency_hz) {
+    switch (frequency_hz) {
+        case NOTE_D6:
+            return 40.0f;
+        case NOTE_E6:
+            return 56.0f;
+        case NOTE_G6:
+            return 80.0f;
+        case NOTE_A6:
+            return 96.0f;
+        case NOTE_B6:
+            return 112.0f;
+        case NOTE_C7:
+            return 120.0f;
+        case NOTE_D7:
+            return 136.0f;
+        case REST:
+        default:
+            return 90.0f;
     }
 }
 
@@ -234,6 +252,7 @@ static void buzzer_init(void) {
 
 static void play_note(const melody_note_t* note) {
     const uint32_t duration_ms = note_duration_ms(note->length);
+    ESP_ERROR_CHECK(servo_set_angle(servo_angle_for_note(note->frequency_hz)));
 
     if (note->frequency_hz == REST) {
         buzzer_stop();
@@ -257,10 +276,6 @@ void app_main(void) {
 
     buzzer_init();
     ESP_ERROR_CHECK(servo_init());
-    ESP_ERROR_CHECK(xTaskCreate(servo_sweep_task, "servo_sweep", 3072, NULL, 5,
-                                NULL) == pdPASS
-                        ? ESP_OK
-                        : ESP_FAIL);
 
     while (true) {
         for (size_t i = 0; i < sizeof(melody) / sizeof(melody[0]); ++i) {
