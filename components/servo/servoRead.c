@@ -195,6 +195,31 @@ bool servoGetPulseWidthTicks(servo_rmt_rx_t* receiver, uint32_t* ticks) {
     return true;
 }
 
+bool servoTicksToDegrees(uint32_t ticks, uint32_t minimum_ticks,
+                         uint32_t maximum_ticks, float minimum_degrees,
+                         float maximum_degrees, float* degrees) {
+    if (degrees == NULL || minimum_ticks >= maximum_ticks ||
+        minimum_degrees >= maximum_degrees) {
+        return false;
+    }
+
+    if (ticks <= minimum_ticks) {
+        *degrees = minimum_degrees;
+        return true;
+    }
+    if (ticks >= maximum_ticks) {
+        *degrees = maximum_degrees;
+        return true;
+    }
+
+    const float tick_fraction =
+        (float)(ticks - minimum_ticks) /
+        (float)(maximum_ticks - minimum_ticks);
+    *degrees = minimum_degrees +
+               tick_fraction * (maximum_degrees - minimum_degrees);
+    return true;
+}
+
 bool servoGetPulseWidthNanoseconds(servo_rmt_rx_t* receiver,
                                    uint32_t* width_ns) {
     if (width_ns == NULL) {

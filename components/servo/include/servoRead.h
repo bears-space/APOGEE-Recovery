@@ -31,6 +31,17 @@ esp_err_t servoRmtDeinit(servo_rmt_rx_t* receiver);
 /** Consume the latest unread valid pulse-width sample. */
 bool servoGetPulseWidthTicks(servo_rmt_rx_t* receiver, uint32_t* ticks);
 
+/**
+ * Convert a pulse width from RMT ticks to a calibrated servo angle.
+ *
+ * Values outside the calibrated tick range are clamped to the corresponding
+ * minimum or maximum angle. Returns false for an invalid calibration or a
+ * NULL output pointer.
+ */
+bool servoTicksToDegrees(uint32_t ticks, uint32_t minimum_ticks,
+                         uint32_t maximum_ticks, float minimum_degrees,
+                         float maximum_degrees, float* degrees);
+
 /** Consume the latest unread valid pulse-width sample in nanoseconds. */
 bool servoGetPulseWidthNanoseconds(servo_rmt_rx_t* receiver,
                                    uint32_t* width_ns);

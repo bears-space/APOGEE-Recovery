@@ -11,29 +11,42 @@
 #define SERVO_GPIO 21
 #define COTS_1_RX_GPIO GPIO_NUM_18
 #define COTS_2_RX_GPIO GPIO_NUM_17
+#define SERVO_MIN_TICKS 10000U  // 1000 us at the 10 MHz RMT resolution
+#define SERVO_MAX_TICKS 20000U  // 2000 us at the 10 MHz RMT resolution
+#define SERVO_MIN_DEGREES 0.0f
+#define SERVO_MAX_DEGREES 180.0f
 
 static const char* TAG = "SERVO";
 
 static servo_rmt_rx_t s_cots_1_receiver = SERVO_RMT_RX_INITIALIZER;
 static servo_rmt_rx_t s_cots_2_receiver = SERVO_RMT_RX_INITIALIZER;
 
+static void logServoAngle(const char* name, servo_rmt_rx_t* receiver) {
+    uint32_t ticks;
+
+    if (!servoGetPulseWidthTicks(receiver, &ticks)) {
+        ESP_LOGW(TAG, "No %s pulse width measurement available", name);
+        return;
+    }
+
+    float degrees;
+    if (!servoTicksToDegrees(ticks, SERVO_MIN_TICKS, SERVO_MAX_TICKS,
+                             SERVO_MIN_DEGREES, SERVO_MAX_DEGREES,
+                             &degrees)) {
+        ESP_LOGE(TAG, "Invalid %s servo calibration", name);
+        return;
+    }
+
+    ESP_LOGI(TAG, "%s angle: %.1f degrees (%" PRIu32 " ticks)", name,
+             degrees, ticks);
+}
+
 static void servoPulseReaderTask(void* arg) {
     (void)arg;
 
     while (true) {
-        uint32_t ticks;
-
-        if (servoGetPulseWidthTicks(&s_cots_1_receiver, &ticks)) {
-            ESP_LOGI(TAG, "COTS-1 pulse width: %" PRIu32 " ticks", ticks);
-        } else {
-            ESP_LOGW(TAG, "No COTS-1 pulse width measurement available");
-        }
-
-        if (servoGetPulseWidthTicks(&s_cots_2_receiver, &ticks)) {
-            ESP_LOGI(TAG, "COTS-2 pulse width: %" PRIu32 " ticks", ticks);
-        } else {
-            ESP_LOGW(TAG, "No COTS-2 pulse width measurement available");
-        }
+        logServoAngle("COTS-1", &s_cots_1_receiver);
+        logServoAngle("COTS-2", &s_cots_2_receiver);
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
