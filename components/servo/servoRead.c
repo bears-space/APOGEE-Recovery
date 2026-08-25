@@ -60,10 +60,10 @@ static bool IRAM_ATTR servoRxDoneCallback(
     return false; // no task was awakened
 }
 
-esp_err_t servoRmtInit(gpio_num_t gpio)
+esp_err_t servoRmtInit(servo_rmt_rx_t *receiver, gpio_num_t gpio)
 {
-    s_servo_rx.latest_high_ticks = 0;
-    s_servo_rx.rearm_errors = 0;
+    receiver->latest_high_ticks = 0;
+    receiver->rearm_errors = 0;
 
     const rmt_rx_channel_config_t channel_config = {
         .gpio_num = gpio,
@@ -80,7 +80,7 @@ esp_err_t servoRmtInit(gpio_num_t gpio)
 
     esp_err_t err = rmt_new_rx_channel(
         &channel_config,
-        &s_servo_rx.channel
+        &receiver->channel
     );
     if (err != ESP_OK) {
         return err; // ESP_ERR_NOT_SUPPORTED if target lacks RMT DMA
@@ -91,44 +91,44 @@ esp_err_t servoRmtInit(gpio_num_t gpio)
     };
 
     err = rmt_rx_register_event_callbacks(
-        s_servo_rx.channel,
+        receiver->channel,
         &callbacks,
-        &s_servo_rx
+        receiver
     );
     if (err != ESP_OK) { //
-        rmt_del_channel(s_servo_rx.channel);
+        rmt_del_channel(receiver->channel);
         return err;
     }
 
-    err = rmt_enable(s_servo_rx.channel);
+    err = rmt_enable(receiver->channel);
     if (err != ESP_OK) {
-        rmt_del_channel(s_servo_rx.channel);
+        rmt_del_channel(receiver->channel);
         return err;
     }
 
     err = rmt_receive(
-        s_servo_rx.channel,
-        s_servo_rx.symbols,
-        sizeof(s_servo_rx.symbols),
+        receiver->channel,
+        receiver->symbols,
+        sizeof(receiver->symbols),
         &s_receive_config
     );
 
     if (err != ESP_OK) { // disable and delete the channel if we fail to start receiving
-        rmt_disable(s_servo_rx.channel);
-        rmt_del_channel(s_servo_rx.channel);
+        rmt_disable(receiver->channel);
+        rmt_del_channel(receiver->channel);
     }
 
     return err;
 }
 
-bool servoGetPulseWidthTicks(uint32_t *ticks)
+bool servoGetPulseWidthTicks(const servo_rmt_rx_t *receiver, uint32_t *ticks)
 {
     /*
     This function retrieves the latest pulse width measurement in ticks from the servo RMT receiver. It uses an atomic load operation to safely read the value of `latest_high_ticks` from the `s_servo_rx` structure, ensuring that there are no race conditions with the main task that may be reading this value concurrently
     */
 
     uint32_t value = __atomic_load_n(
-        &s_servo_rx.latest_high_ticks,
+        &receiver->latest_high_ticks,
         __ATOMIC_ACQUIRE
     );
 
@@ -140,11 +140,11 @@ bool servoGetPulseWidthTicks(uint32_t *ticks)
     return true;
 }
 
-bool servoGetPulseWidthNanoseconds(uint32_t *width_ns)
+bool servoGetPulseWidthNanoseconds(const servo_rmt_rx_t *receiver, uint32_t *width_ns)
 {
     uint32_t ticks;
 
-    if (!servoGetPulseWidthTicks(&ticks)) {
+    if (!servoGetPulseWidthTicks(receiver, &ticks)) {
         return false;
     }
 

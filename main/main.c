@@ -12,13 +12,24 @@ static void servoPulseReaderTask(void *arg)
 {
     (void)arg;
 
+    static DRAM_ATTR servo_rmt_rx_t rmtReceiverIO17;
+    static DRAM_ATTR servo_rmt_rx_t rmtReceiverIO18;
+    ESP_ERROR_CHECK(servoRmtInit(&rmtReceiverIO17, GPIO_NUM_17));
+    ESP_ERROR_CHECK(servoRmtInit(&rmtReceiverIO18, GPIO_NUM_18));
+
     while (true) {
         uint32_t ticks;
-
-        if (servoGetPulseWidthTicks(&ticks)) {
-            printf("Servo pulse width: %" PRIu32 " ticks\n", ticks);
+        
+        if (servoGetPulseWidthTicks(&rmtReceiverIO18, &ticks)) {
+            ESP_LOGI("SERVO [COTS-1]:", "Servo pulse width: %" PRIu32 " ticks\n", ticks);
         } else {
-            printf("No pulse width measurement available\n");
+            ESP_LOGW("SERVO [COTS-1]:", "No pulse width measurement available\n");
+        }
+
+        if (servoGetPulseWidthTicks(&rmtReceiverIO17, &ticks)) {
+            ESP_LOGI("SERVO [COTS-2]:", "Servo pulse width: %" PRIu32 " ticks\n", ticks);
+        } else {
+            ESP_LOGW("SERVO [COTS-2]:", "No pulse width measurement available\n");
         }
 
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -36,8 +47,6 @@ void app_main(void) {
     servoConfig_t servo_config = SERVO_CONFIG_DEFAULT(SERVO_GPIO);
     servo_config.output_inverted = true;
     ESP_ERROR_CHECK(servoNew(&servo_config, &servo));
-
-    ESP_ERROR_CHECK(servoRmtInit(GPIO_NUM_17));
 
     // start a new task to read the servo pulse width in ticks
     BaseType_t result = xTaskCreate(servoPulseReaderTask, "servo_pulse_reader", 2048, NULL, 1, NULL);
