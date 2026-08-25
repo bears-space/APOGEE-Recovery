@@ -35,3 +35,5 @@ static DRAM_ATTR rmt_receive_config_t s_receive_config = {
         .en_partial_rx = false,
     },
 };
+
+bool servoGetPulseWidthTicks(uint32_t *ticks);

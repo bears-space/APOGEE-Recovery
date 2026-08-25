@@ -4,8 +4,26 @@
 #include "servo.h"
 #include "servoRead.h"
 #include "vigilant.h"
+#include "esp_log.h"
 
 #define SERVO_GPIO 21
+
+static void servoPulseReaderTask(void *arg)
+{
+    (void)arg;
+
+    while (true) {
+        uint32_t ticks;
+
+        if (servoGetPulseWidthTicks(&ticks)) {
+            printf("Servo pulse width: %" PRIu32 " ticks\n", ticks);
+        } else {
+            printf("No pulse width measurement available\n");
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
 
 void app_main(void) {
     const VigilantConfig config = {
@@ -19,6 +37,14 @@ void app_main(void) {
     servo_config.output_inverted = true;
     ESP_ERROR_CHECK(servoNew(&servo_config, &servo));
 
+    // start a new task to read the servo pulse width in ticks
+    BaseType_t result = xTaskCreate(servoPulseReaderTask, "servo_pulse_reader", 2048, NULL, 1, NULL);
+
+    if (result != pdPASS) {
+        ESP_LOGE("SERVO", "Failed to create servo reader task");
+        return;
+    }
+
     while (true) {
         ESP_ERROR_CHECK(servoSetAngle(servo, 0.0f));
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -29,6 +55,4 @@ void app_main(void) {
         ESP_ERROR_CHECK(servoSetAngle(servo, 180.0f));
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-
-    
 }
