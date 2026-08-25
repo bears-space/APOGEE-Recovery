@@ -1,35 +1,38 @@
+#include <inttypes.h>
+
 #include "esp_err.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "servo.h"
 #include "servoRead.h"
 #include "vigilant.h"
-#include "esp_log.h"
 
 #define SERVO_GPIO 21
+#define COTS_1_RX_GPIO GPIO_NUM_18
+#define COTS_2_RX_GPIO GPIO_NUM_17
 
-static void servoPulseReaderTask(void *arg)
-{
+static const char* TAG = "SERVO";
+
+static servo_rmt_rx_t s_cots_1_receiver = SERVO_RMT_RX_INITIALIZER;
+static servo_rmt_rx_t s_cots_2_receiver = SERVO_RMT_RX_INITIALIZER;
+
+static void servoPulseReaderTask(void* arg) {
     (void)arg;
-
-    static DRAM_ATTR servo_rmt_rx_t rmtReceiverIO17;
-    static DRAM_ATTR servo_rmt_rx_t rmtReceiverIO18;
-    ESP_ERROR_CHECK(servoRmtInit(&rmtReceiverIO17, GPIO_NUM_17));
-    ESP_ERROR_CHECK(servoRmtInit(&rmtReceiverIO18, GPIO_NUM_18));
 
     while (true) {
         uint32_t ticks;
-        
-        if (servoGetPulseWidthTicks(&rmtReceiverIO18, &ticks)) {
-            ESP_LOGI("SERVO [COTS-1]:", "Servo pulse width: %" PRIu32 " ticks\n", ticks);
+
+        if (servoGetPulseWidthTicks(&s_cots_1_receiver, &ticks)) {
+            ESP_LOGI(TAG, "COTS-1 pulse width: %" PRIu32 " ticks", ticks);
         } else {
-            ESP_LOGW("SERVO [COTS-1]:", "No pulse width measurement available\n");
+            ESP_LOGW(TAG, "No COTS-1 pulse width measurement available");
         }
 
-        if (servoGetPulseWidthTicks(&rmtReceiverIO17, &ticks)) {
-            ESP_LOGI("SERVO [COTS-2]:", "Servo pulse width: %" PRIu32 " ticks\n", ticks);
+        if (servoGetPulseWidthTicks(&s_cots_2_receiver, &ticks)) {
+            ESP_LOGI(TAG, "COTS-2 pulse width: %" PRIu32 " ticks", ticks);
         } else {
-            ESP_LOGW("SERVO [COTS-2]:", "No pulse width measurement available\n");
+            ESP_LOGW(TAG, "No COTS-2 pulse width measurement available");
         }
 
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -48,12 +51,30 @@ void app_main(void) {
     servo_config.output_inverted = true;
     ESP_ERROR_CHECK(servoNew(&servo_config, &servo));
 
+    esp_err_t error = servoRmtInit(&s_cots_1_receiver, COTS_1_RX_GPIO);
+    if (error != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize COTS-1 receiver: %s",
+                 esp_err_to_name(error));
+        ESP_ERROR_CHECK(error);
+    }
+
+    error = servoRmtInit(&s_cots_2_receiver, COTS_2_RX_GPIO);
+    if (error != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize COTS-2 receiver: %s",
+                 esp_err_to_name(error));
+        (void)servoRmtDeinit(&s_cots_1_receiver);
+        ESP_ERROR_CHECK(error);
+    }
+
     // start a new task to read the servo pulse width in ticks
-    BaseType_t result = xTaskCreate(servoPulseReaderTask, "servo_pulse_reader", 2048, NULL, 1, NULL);
+    const BaseType_t result = xTaskCreate(
+        servoPulseReaderTask, "servo_pulse_reader", 2048, NULL, 1, NULL);
 
     if (result != pdPASS) {
-        ESP_LOGE("SERVO", "Failed to create servo reader task");
-        return;
+        ESP_LOGE(TAG, "Failed to create servo reader task");
+        (void)servoRmtDeinit(&s_cots_2_receiver);
+        (void)servoRmtDeinit(&s_cots_1_receiver);
+        ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
     }
 
     while (true) {
