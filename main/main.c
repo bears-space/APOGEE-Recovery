@@ -37,6 +37,8 @@ void app_main(void) {
     servo_config.output_inverted = true;
     ESP_ERROR_CHECK(servoNew(&servo_config, &servo));
 
+    ESP_ERROR_CHECK(servoRmtInit(GPIO_NUM_17));
+
     // start a new task to read the servo pulse width in ticks
     BaseType_t result = xTaskCreate(servoPulseReaderTask, "servo_pulse_reader", 2048, NULL, 1, NULL);
 

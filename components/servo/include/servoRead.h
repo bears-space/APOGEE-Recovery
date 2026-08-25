@@ -37,3 +37,5 @@ static DRAM_ATTR rmt_receive_config_t s_receive_config = {
 };
 
 bool servoGetPulseWidthTicks(uint32_t *ticks);
+
+esp_err_t servoRmtInit(gpio_num_t gpio);
