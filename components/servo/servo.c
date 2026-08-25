@@ -7,7 +7,7 @@
 
 #define SERVO_TIMER_RESOLUTION_HZ 1000000UL
 
-struct servo_instance {
+struct servoInstance {
     mcpwm_timer_handle_t timer;
     mcpwm_oper_handle_t operator;
     mcpwm_cmpr_handle_t comparator;
@@ -20,45 +20,45 @@ struct servo_instance {
     bool timer_started;
 };
 
-static void record_first_error(esp_err_t* first_error, esp_err_t error) {
-    if (*first_error == ESP_OK && error != ESP_OK) {
-        *first_error = error;
+static void recordFirstError(esp_err_t* firstErr, esp_err_t error) {
+    if (*firstErr == ESP_OK && error != ESP_OK) {
+        *firstErr = error;
     }
 }
 
-static esp_err_t release_hardware(servo_handle_t servo) {
+static esp_err_t releaseHardware(servo_handle_t servo) {
     esp_err_t result = ESP_OK;
 
     if (servo->timer_started) {
-        record_first_error(&result, mcpwm_timer_start_stop(
+        recordFirstError(&result, mcpwm_timer_start_stop(
                                         servo->timer, MCPWM_TIMER_STOP_EMPTY));
         servo->timer_started = false;
     }
     if (servo->timer_enabled) {
-        record_first_error(&result, mcpwm_timer_disable(servo->timer));
+        recordFirstError(&result, mcpwm_timer_disable(servo->timer));
         servo->timer_enabled = false;
     }
     if (servo->generator != NULL) {
-        record_first_error(&result, mcpwm_del_generator(servo->generator));
+        recordFirstError(&result, mcpwm_del_generator(servo->generator));
         servo->generator = NULL;
     }
     if (servo->comparator != NULL) {
-        record_first_error(&result, mcpwm_del_comparator(servo->comparator));
+        recordFirstError(&result, mcpwm_del_comparator(servo->comparator));
         servo->comparator = NULL;
     }
     if (servo->operator != NULL) {
-        record_first_error(&result, mcpwm_del_operator(servo->operator));
+        recordFirstError(&result, mcpwm_del_operator(servo->operator));
         servo->operator = NULL;
     }
     if (servo->timer != NULL) {
-        record_first_error(&result, mcpwm_del_timer(servo->timer));
+        recordFirstError(&result, mcpwm_del_timer(servo->timer));
         servo->timer = NULL;
     }
 
     return result;
 }
 
-static uint32_t pulse_width_for_angle(servo_handle_t servo,
+static uint32_t pulseWidthAngle(servo_handle_t servo,
                                       float angle_degrees) {
     if (angle_degrees < servo->minimum_angle_degrees) {
         angle_degrees = servo->minimum_angle_degrees;
@@ -74,7 +74,7 @@ static uint32_t pulse_width_for_angle(servo_handle_t servo,
                                         servo->minimum_pulse_width_us));
 }
 
-esp_err_t servo_new(const servo_config_t* config, servo_handle_t* ret_servo) {
+esp_err_t servoNew(const servoConfig_t* config, servo_handle_t* ret_servo) {
     if (config == NULL || ret_servo == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -165,7 +165,7 @@ esp_err_t servo_new(const servo_config_t* config, servo_handle_t* ret_servo) {
         goto fail;
     }
 
-    result = servo_set_angle(servo, config->initial_angle_degrees);
+    result = servoSetAngle(servo, config->initial_angle_degrees);
     if (result != ESP_OK) {
         goto fail;
     }
@@ -186,21 +186,21 @@ esp_err_t servo_new(const servo_config_t* config, servo_handle_t* ret_servo) {
     return ESP_OK;
 
 fail:
-    (void)release_hardware(servo);
+    (void)releaseHardware(servo);
     free(servo);
     return result;
 }
 
-esp_err_t servo_set_angle(servo_handle_t servo, float angle_degrees) {
+esp_err_t servoSetAngle(servo_handle_t servo, float angle_degrees) {
     if (servo == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
     return mcpwm_comparator_set_compare_value(
-        servo->comparator, pulse_width_for_angle(servo, angle_degrees));
+        servo->comparator, pulseWidthAngle(servo, angle_degrees));
 }
 
-esp_err_t servo_set_pulse_width_us(servo_handle_t servo,
+esp_err_t servoSetPulseWidth_us(servo_handle_t servo,
                                    uint32_t pulse_width_us) {
     if (servo == NULL || pulse_width_us < servo->minimum_pulse_width_us ||
         pulse_width_us > servo->maximum_pulse_width_us) {
@@ -216,7 +216,7 @@ esp_err_t servo_del(servo_handle_t servo) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    const esp_err_t result = release_hardware(servo);
+    const esp_err_t result = releaseHardware(servo);
     free(servo);
     return result;
 }

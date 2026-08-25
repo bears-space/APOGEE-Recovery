@@ -5,12 +5,8 @@
 
 #include "esp_err.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /** Opaque handle for one independently controlled servo. */
-typedef struct servo_instance* servo_handle_t;
+typedef struct servoInstance* servo_handle_t;
 
 typedef struct {
     int gpio_num;
@@ -23,7 +19,7 @@ typedef struct {
     float initial_angle_degrees;
     /** Invert the physical GPIO output in the GPIO matrix. */
     bool output_inverted;
-} servo_config_t;
+} servoConfig_t;
 
 #define SERVO_CONFIG_DEFAULT(gpio_)      \
     {                                    \
@@ -45,18 +41,14 @@ typedef struct {
  * instances can be created until the selected MCPWM group has no free hardware
  * timers/operators; choose another group_id to use that group's resources.
  */
-esp_err_t servo_new(const servo_config_t* config, servo_handle_t* ret_servo);
+esp_err_t servoNew(const servoConfig_t* config, servo_handle_t* ret_servo);
 
 /** Set an angle, clamped to the configured angle range. */
-esp_err_t servo_set_angle(servo_handle_t servo, float angle_degrees);
+esp_err_t servoSetAngle(servo_handle_t servo, float angle_degrees);
 
 /** Set a raw pulse width inside the configured servo pulse range. */
-esp_err_t servo_set_pulse_width_us(servo_handle_t servo,
-                                   uint32_t pulse_width_us);
+esp_err_t servoSetPulseWidth_us(servo_handle_t servo,
+                                 uint32_t pulse_width_us);
 
 /** Stop and release one servo and all MCPWM resources owned by it. */
-esp_err_t servo_del(servo_handle_t servo);
-
-#ifdef __cplusplus
-}
-#endif
+esp_err_t servoDel(servo_handle_t servo);
