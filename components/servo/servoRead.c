@@ -96,7 +96,7 @@ esp_err_t servoRmtInit(servo_rmt_rx_t* receiver, gpio_num_t gpio) {
         .intr_priority = 0,
         .flags =
             {
-                .invert_in = false,
+                .invert_in = true, // needed on our apogee-recovery
                 // ESP32-S3 has only one DMA-capable RX channel per RMT group.
                 // Normal RMT memory is ample for a servo pulse and permits
                 // multiple receivers.
