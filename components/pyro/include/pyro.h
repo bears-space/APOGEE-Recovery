@@ -9,6 +9,6 @@ typedef struct {
     bool has_fired;
 } PyroChannel;
 
-void initPyro(void);
+void initPyro(size_t num_channels, PyroChannel (*channels)[num_channels]);
 bool isIgnitionActive(void);
 esp_err_t firePyroChannel(PyroChannel* channel);

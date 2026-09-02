@@ -15,40 +15,23 @@ void app_main(void) {
                                .network_mode = NW_MODE_APSTA};
     ESP_ERROR_CHECK(vigilant_init(VgConfig));
 
-    PyroChannel pyro1 = {
-        .channel_number = 1,
-        .gpio_pin = GPIO_NUM_37,
-        .has_fired = false
+    PyroChannel pyroChannels[4] = {
+        {.channel_number = 1, .gpio_pin = GPIO_NUM_37, .has_fired = false},
+        {.channel_number = 2, .gpio_pin = GPIO_NUM_48, .has_fired = false},
+        {.channel_number = 3, .gpio_pin = GPIO_NUM_35, .has_fired = false},
+        {.channel_number = 4, .gpio_pin = GPIO_NUM_36, .has_fired = false}
     };
 
-    PyroChannel pyro2 = {
-        .channel_number = 2,
-        .gpio_pin = GPIO_NUM_48,
-        .has_fired = false
-    };
-
-    PyroChannel pyro3 = {
-        .channel_number = 3,
-        .gpio_pin = GPIO_NUM_35,
-        .has_fired = false
-    };
-
-    PyroChannel pyro4 = {
-        .channel_number = 4,
-        .gpio_pin = GPIO_NUM_36,
-        .has_fired = false
-    };
-
-    initPyro();
+    initPyro(4, &pyroChannels);
 
     // wait 10 seconds
     ESP_LOGI(TAG, "Waiting 10 seconds before firing pyro channels...");
     vTaskDelay(10000 / portTICK_PERIOD_MS);
-    firePyroChannel(&pyro1);
+    firePyroChannel(&pyroChannels[0]);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    firePyroChannel(&pyro2);
+    firePyroChannel(&pyroChannels[1]);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    firePyroChannel(&pyro3);
+    firePyroChannel(&pyroChannels[2]);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    firePyroChannel(&pyro4);
+    firePyroChannel(&pyroChannels[3]);
 }

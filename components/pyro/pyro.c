@@ -13,12 +13,10 @@ static volatile bool ignitionActive = false;
 static void IRAM_ATTR ignitionInterruptHandler(void *arg) { // the actual interrupt handler for the ignition signal
     ignitionActive = true;
 
-    // implement all logic here, maybe also a debounce??
-
-    ESP_LOGI("Pyro", "Ignition signal detected!");
+    // Dontput any other code in here, make a task instead.
 }
 
-void initPyro(void) {
+void initPyro(size_t num_channels, PyroChannel (*channels)[num_channels]) {
     ESP_LOGI("Pyro", "Initializing Pyro module...");
 
     // initialize the interrupt stuff
@@ -39,6 +37,32 @@ void initPyro(void) {
         ignitionInterruptHandler,
         (void *)(uintptr_t)INTERRUPT_PIN
     ));
+
+    // read the initial state of the ignition pin
+    ignitionActive = (gpio_get_level(INTERRUPT_PIN) == 1); // if the pin is high, ignition is active, otherwise it is not
+
+    uint64_t pin_mask = 0;
+    for (size_t i = 0; i < num_channels; i++)
+    {
+        pin_mask |= 1ULL << (*channels)[i].gpio_pin;
+        ESP_LOGI("Pyro", "Added channel %d on GPIO pin %d, whole pin mask: 0x%016llx", (*channels)[i].channel_number, (*channels)[i].gpio_pin, (unsigned long long)pin_mask);
+    }
+
+    gpio_config_t channelConfig = {
+        .pin_bit_mask = pin_mask,
+        .mode         = GPIO_MODE_OUTPUT,
+        .pull_up_en   = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type    = GPIO_INTR_DISABLE, // no interrupts for the pyro channels
+    };
+    esp_err_t err = gpio_config(&channelConfig); // only set the pin mask once, for some reason it overwrites the previous config if you call it multiple times, so we do it once with a pin mask of all the channels
+    if (err != ESP_OK) {
+        ESP_LOGE("Pyro", "Failed to configure GPIO for pyro channels: %s", esp_err_to_name(err));
+    }
+    else {
+        ESP_LOGI("Pyro", "Successfully configured GPIO for pyro channels.");
+    }
+    
 }
 
 bool isIgnitionActive(void) {
